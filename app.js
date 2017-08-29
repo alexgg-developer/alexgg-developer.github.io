@@ -63,6 +63,7 @@ function moveCameraDependingOnCorner(delta)
 
   camera.position.add(movementVector);
   candle.position.add(movementVector);
+  light.position.add(movementVector);
   //camera.updateProjectionMatrix();
   //camera.updateMatrix(); // make sure camera's local matrix is updated
   //camera.updateMatrixWorld();
@@ -70,12 +71,23 @@ function moveCameraDependingOnCorner(delta)
 
 function isOnCorner(object, camera, corners)
 {
-  var sMin = new THREE.Vector3(object.geometry.boundingBox.min.x + object.position.x, 
-    object.geometry.boundingBox.min.y + object.position.y, object.position.z);
+  //candle.geometry.computeBoundingBox();
+  var objectWidth = object.geometry.boundingBox.max.x;
+  var objectHeight = object.geometry.boundingBox.max.y;
+  var sMin = new THREE.Vector3();
+  //sMin.x = object.position.x - objectWidth * 0.5;
+  sMin.x = object.position.x;
+  sMin.y = object.position.y; 
+  sMin.z = object.position.z;
    // var sMin = new THREE.Vector4(object.geometry.boundingBox.max.x, 
    //    object.geometry.boundingBox.max.y, object.position.z , 1);
-  var sMax = new THREE.Vector3(object.geometry.boundingBox.max.x + object.position.x, 
-       object.geometry.boundingBox.max.y + object.position.x, object.position.z);
+   sphere.position.copy(sMin);
+  var sMax = new THREE.Vector3();
+
+  sMax.x = object.position.x + objectWidth;
+  sMax.y = object.position.y + objectHeight; 
+  sMax.z = object.position.z;
+   sphere.position.copy(sMax);
   //var MVP =  new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse )  
   //var sMin = new THREE.Vector3();
   //sMin.copy(object.position);
@@ -123,25 +135,35 @@ function isOnCorner(object, camera, corners)
   // console.log("sMinx::" + sMin.x + "sMiny::" + sMin.y);
   // console.log("x::" + x + "y::" + y);
   // console.log("x::" + vector.x + "y::" + vector.y);
-  console.log("sMax::");
+  /*console.log("sMax::");
   printVector3(sMax);
   console.log("sMin::");
   printVector3(sMin);
+  console.log("corners.top::" + corners.top);
+  console.log("corners.bottom::" + corners.bottom);
+  console.log("corners.right::" + corners.right);
+  console.log("corners.left::" + corners.left);*/
 
   cornerOn = Corner.NONE;
   if(sMax.x > corners.right) {
     cornerOn |= Corner.RIGHT;
+    //console.log("CORNER RIGHT");
   }
   else if (sMin.x < corners.left) {
     cornerOn |= Corner.LEFT;  
+    //console.log("CORNER LEFT");
   }
 
   if(sMax.y > corners.top) {
     cornerOn |= Corner.TOP;
+    //console.log("CORNER TOP");
   }
   else if (sMin.y < corners.bottom) {
     cornerOn |= Corner.BOTTOM;  
+    //console.log("CORNER BOTTOM");
   }
+
+  //cornerOn = Corner.NONE;
 }
 
 function getImageData( image ) {
@@ -295,6 +317,8 @@ function init() {
   document.addEventListener( 'mousedown', onDocumentMouseDown, false );
   document.addEventListener( 'mousemove', onDocumentMouseMove, false );
   document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+  document.addEventListener("keydown", onKeyDown, false);
+  document.addEventListener("keyup", onKeyUp, false); 
 
   canvasWidth = 960;
   canvasHeight = 540;
@@ -349,16 +373,26 @@ function fillScene() {
   sphereMaterial.color.b = 0.0;
   sphere = new THREE.Mesh(
     new THREE.SphereGeometry( 1, 32, 16 ), sphereMaterial );
+  //sphere.position.copy(light.position);
   scene.add(sphere)
 
   var img = drawTexturedSquare(new THREE.Vector3(0,0,0), "imgs/fox.jpg", MaterialKind.PHONG);
   scene.add(img);
 
-  candle = drawTexturedSquare(
+  /*candle = drawTexturedSquare(
     new THREE.Vector3(light.position.x, light.position.y, light.position.z - 1),
-    "imgs/animations/candlelit/candlelit1.png", MaterialKind.BASIC, true);
-  candle.geometry.computeBoundingBox();
-  scene.add(candle);
+    "imgs/animations/candlelit/candlelit1.png", MaterialKind.BASIC, true);*/
+  //candle.geometry.computeBoundingBox();
+  var candleParams = new Object();
+  candleParams.center = new THREE.Vector3(light.position.x, light.position.y, light.position.z - 1);
+  candleParams.textureName = "imgs/animations/candlelit/candlelit";
+  candleParams.extension = ".png";
+  candleParams.frames = 5;
+  candleParams.material = mps.MaterialKind.BASIC;
+  candleParams.transparent = true;
+  candleParams.timePerFrame = 0.15;
+  candle = new AnimatedQuad(candleParams);
+  scene.add(candle.getMesh());
 
 
   /*var imgTexture = textureManager.getTextureByName("imgs/animations/candlelit/candlelit1.png");
@@ -382,6 +416,7 @@ function animate() {
   if(cornerOn != Corner.NONE) {
     moveCameraDependingOnCorner(delta);
   }
+  candle.update(delta);
   window.requestAnimationFrame(animate);
   render();
 
@@ -389,9 +424,6 @@ function animate() {
 
 function render() {
   renderer.render(scene, camera);
-  if(bDragging) {
-    isOnCorner(candle, camera, corners);
-  }
 }
 
 function addToDOM() {
@@ -430,7 +462,7 @@ function onDocumentMouseDown( event )
 
   raycaster.setFromCamera( mouseVector, camera );
   // hit testing
-  var intersects = raycaster.intersectObject( candle );
+  var intersects = raycaster.intersectObject( candle.getMesh() );
   if ( intersects.length > 0 ) {
       intersects[ 0 ].object.material.color.setRGB(
           Math.random(), Math.random(), Math.random() );
@@ -458,7 +490,7 @@ function onDocumentMouseDown( event )
         bDragging = true;
       }
   }
-  lastMousePosition = transformHDCtoWorld(mouseVector);
+  lastMousePosition = new THREE.Vector2(event.clientX, event.clientY);
 }
 
 function checkBoundingBoxOnFrustum(frustum, boundingBox, position)
@@ -486,11 +518,11 @@ function onDocumentMouseMove( event )
       1 - 2 * ( event.clientY / canvasHeight ));
 
   
-  console.log("canvasWidth::" + canvasWidth);
-  console.log("mouseMove::" + mouseVector.x + "," + mouseVector.y + "," + mouseVector.z);
+  //console.log("canvasWidth::" + canvasWidth);
+  //console.log("mouseMove::" + mouseVector.x + "," + mouseVector.y + "," + mouseVector.z);
   //mouseVector.unproject(camera);
   //console.log("mouseMove unproj::" + mouseVector.x + "," + mouseVector.y + "," + mouseVector.z);
-  console.log("screen::" + event.clientX + "," + event.clientY);
+  //console.log("screen::" + event.clientX + "," + event.clientY);
   var unProjectedScreen = new THREE.Vector3(event.clientX, event.clientY, -1);
   unProjectedScreen.unproject(camera);
   //console.log("unprojected::" + unProjectedScreen.x + "," + unProjectedScreen.y + "," + unProjectedScreen.z);
@@ -505,38 +537,50 @@ function onDocumentMouseMove( event )
 
   // sphere.position.copy(unProjected);
   // sphere.position.z = 0;
-  console.log("unprojected::" + unProjected.x + "," + unProjected.y + "," + unProjected.z);
+  //console.log("unprojected::" + unProjected.x + "," + unProjected.y + "," + unProjected.z);
   var newMousePosition = transformHDCtoWorld(mouseVector);
 
   if(lastMousePosition != undefined) {
+    var hdcLastMousePosition = new THREE.Vector3(
+      2 * ( lastMousePosition.x / canvasWidth ) - 1,
+      1 - 2 * ( lastMousePosition.y / canvasHeight ));
+    hdcLastMousePosition = transformHDCtoWorld(hdcLastMousePosition);
     var movementVector = new THREE.Vector3();
-    movementVector.subVectors(newMousePosition, lastMousePosition);
+    movementVector.subVectors(newMousePosition, hdcLastMousePosition);
     if(bDragging) {
-      candle.position.add(movementVector);
-      light.position.add(movementVector);   
+      var wasOnCorner = cornerOn != Corner.NONE;
+      isOnCorner(candle, camera, corners);
+      printVector3(movementVector);
+      //if(!wasOnCorner && cornerOn == Corner.NONE) {
+        candle.position.add(movementVector);
+        light.position.add(movementVector); 
+        //console.log("dragging");  
 
-      var frustum = new THREE.Frustum();
-      frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
+        var frustum = new THREE.Frustum();
+        frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
 
-      candle.geometry.computeBoundingBox();
+        //candle.geometry.computeBoundingBox();
+      //}
       
       //if(frustum.containsPoint(newMousePosition)) {
         //console.log('within camera view');      
       //} else {
-      if(!checkBoundingBoxOnFrustum(frustum, candle.geometry.boundingBox, candle.position)) {
+      /*if(!checkBoundingBoxOnFrustum(frustum, candle.geometry.boundingBox, candle.position)) {
         console.log('outside camera view');
-        /*camera.position.add(movementVector);
+        //camera.position.add(movementVector);
         //camera.updateProjectionMatrix();
-        camera.updateMatrix(); // make sure camera's local matrix is updated
-        camera.updateMatrixWorld(); // make sure camera's world matrix is updated
-        camera.matrixWorldInverse.getInverse( camera.matrixWorld );*/
-      }
+        //camera.updateMatrix(); // make sure camera's local matrix is updated
+        //camera.updateMatrixWorld(); // make sure camera's world matrix is updated
+        //camera.matrixWorldInverse.getInverse( camera.matrixWorld );
+      }*/
       
     } 
+
+    lastMousePosition.x = event.clientX;
+    lastMousePosition.y = event.clientY;
   }
 
 
-  lastMousePosition = newMousePosition;
   //sphere.position.copy(pos);
   //console.log("pos::");
   //printVector3(pos);
@@ -549,6 +593,50 @@ function onDocumentMouseUp( event )
 {
   lastMousePosition = undefined;
   bDragging = false;
+}
+
+function onKeyDown(event)
+{
+  //38 -> up
+  //37 -> left
+  //39 -> right
+  //40 -> down
+  var keyCode = event.keyCode; 
+  switch(keyCode) {
+    case 33: //numpad9
+      cornerOn = Corner.TOP | Corner.RIGHT;
+      break;
+    case 36: //numpad7
+      cornerOn = Corner.TOP | Corner.LEFT;
+      break;
+    case 34: //numpad3
+      cornerOn = Corner.BOTTOM | Corner.RIGHT;
+      break;
+    case 35: //numpad1
+      cornerOn = Corner.BOTTOM | Corner.LEFT;
+      break;
+    case 37:
+      cornerOn = Corner.LEFT;
+      break;
+    case 38:
+      cornerOn = Corner.TOP;
+      break;
+    case 39:
+      cornerOn = Corner.RIGHT;
+      break;
+    case 40:
+      cornerOn = Corner.BOTTOM;
+      break;
+    default:
+      cornerOn = Corner.NONE;
+      break;
+  }
+}
+
+function onKeyUp(event)
+{
+  var keyCode = event.keyCode;
+  cornerOn = Corner.NONE;
 }
 
 function onAllTexturesLoaded()

@@ -69,7 +69,7 @@ class TextureManager {
   loadAnimationTextures(textureName, frames, extension ) {
     var that = this;
     var textureLoader = new THREE.TextureLoader();
-    for(var i = 1; i <= frames; ++i) {
+    for(var i = 0; i < frames; ++i) {
       //++this.loadingTextures;
       var textureMap = textureLoader.load(textureName + i + extension, function(texture) {
         that.onTextureLoaded(texture);

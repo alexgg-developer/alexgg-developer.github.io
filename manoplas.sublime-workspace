@@ -4,6 +4,26 @@
 		"selected_items":
 		[
 			[
+				"cli",
+				"clientX"
+			],
+			[
+				"matrixWor",
+				"matrixWorldInverse"
+			],
+			[
+				"TH",
+				"THREE.Vector3"
+			],
+			[
+				"pos",
+				"position"
+			],
+			[
+				"Three",
+				"THREE"
+			],
+			[
 				"bIsM",
 				"bIsMinOnFrustum〔variable〕"
 			],
@@ -26,10 +46,6 @@
 			[
 				"printVec",
 				"printVector3〔function〕"
-			],
-			[
-				"TH",
-				"THREE"
 			],
 			[
 				"unproj",
@@ -81,14 +97,19 @@
 			}
 		},
 		{
-			"contents": "// ------------------------------------------------\n// BASIC SETUP\n// ------------------------------------------------\n\"use strict\";\n\n\nvar camera, renderer, scene;\nvar cameraControls;\nvar textureManager;\nvar canvasWidth\nvar canvasHeight\nvar light, ambientLight;\nvar MaterialKind = {\n  BASIC: 0,\n  LAMBERT: 1,\n  PHONG: 2\n}\n//var interactableObjects = [];\nvar candle;\nvar raycaster = new THREE.Raycaster();\nvar clock = new THREE.Clock();\nvar sphere;\nvar lastMousePosition;\nvar bDragging = false;\nvar Corner = {\n  LEFT: 1,\n  RIGHT: 1 << 1,\n  TOP: 1 << 2,\n  BOTTOM: 1 << 3\n}\nvar cornerOn;\n\nfunction printVector3(v)\n{\n  console.log(\"(\" + v.x + \",\" + v.y + \",\" + v.z + \")\");\n}\n\nfunction printVector4(v)\n{\n  console.log(\"(\" + v.x + \",\" + v.y + \",\" + v.z + \",\" + v.w + \")\" );\n}\n\nfunction getImageData( image ) {\n\n    var canvas = document.createElement( 'canvas' );\n    canvas.width = image.width;\n    canvas.height = image.height;\n\n    var context = canvas.getContext( '2d' );\n    context.drawImage( image, 0, 0 );\n\n    return context.getImageData( 0, 0, image.width, image.height );\n\n}\n\nfunction getPixel( imagedata, x, y ) {\n\n    y = imagedata.height - y;\n    var position = ( x + imagedata.width * y ) * 4, data = imagedata.data;\n    console.log(\"int position: \" + x + \",\" + y);\n    return new THREE.Vector4(data[position], data[ position + 1 ], data[ position + 2 ], data[ position + 3]);\n    //return { r: data[ position ], g: data[ position + 1 ], b: data[ position + 2 ], a: data[ position + 3 ] };\n\n}\n\nfunction getMaterial(material)\n{\n  var materialCreated;\n  switch(material)\n  {\n    case MaterialKind.LAMBERT:\n      materialCreated = new THREE.MeshLambertMaterial( { color: 0xF6831E } );\n      break;\n    case MaterialKind.PHONG:\n      materialCreated = new THREE.MeshPhongMaterial( { color: 0xF6831E } );\n      break;\n    case MaterialKind.BASIC:\n    default:\n      materialCreated = new THREE.MeshBasicMaterial( { color: 0xF6831E } );\n      break;\n  }\n  return materialCreated;\n}\n\nfunction drawSquare(x1, y1, x2, y2) {\n\n  var square = new THREE.Geometry();\n  // Your code goes here\n  square.vertices.push( new THREE.Vector3( x1, y1, 0 ) );\n  square.vertices.push( new THREE.Vector3( x2, y1, 0 ) );\n  square.vertices.push( new THREE.Vector3( x2, y2, 0 ) );\n  square.vertices.push( new THREE.Vector3( x1, y2, 0 ) );\n\n  square.faces.push( new THREE.Face3( 0, 1, 2 ) );\n  square.faces.push( new THREE.Face3( 0, 2, 3 ) );\n\n  var square_material = new THREE.MeshPhongMaterial( { color: 0xF6831E, side: THREE.DoubleSide } );\n  //var square_material = new THREE.MeshLambertMaterial( { color: 0xF6831E, side: THREE.DoubleSide } );\n  var square_mesh = new THREE.Mesh(square, square_material);\n\n  return square_mesh;\n}\n\nfunction drawTexturedSquare(center, texture, material, transparent) {\n\n  if(transparent == undefined) {\n    transparent = false;\n  }\n\n  var textureMap = textureManager.getTextureByName(texture);\n  textureMap.wrapS = textureMap.wrapT = THREE.ClampToEdgeWrapping;\n  textureMap.minFilter = THREE.LinearFilter;\n  textureMap.magFilter = THREE.LinearFilter;  \n\n  var width = textureMap.image.width;\n  var height = textureMap.image.height;\n\n  var square = new THREE.Geometry();\n  // Your code goes here\n  // var left = center.x - width * 0.5;\n  // var right = center.x + width * 0.5;\n  // var bottom = center.y - height * 0.5;\n  // var top = center.y + height * 0.5;\n  // square.vertices.push( new THREE.Vector3( left, bottom, center.z) );\n  // square.vertices.push( new THREE.Vector3( right, bottom, center.z ) );\n  // square.vertices.push( new THREE.Vector3( right, top, center.z ) );\n  // square.vertices.push( new THREE.Vector3( left, top, center.z ) );\n\n\n  square.vertices.push( new THREE.Vector3( 0, 0, 0) );\n  square.vertices.push( new THREE.Vector3( width, 0, 0 ) );\n  square.vertices.push( new THREE.Vector3( width, height, 0 ) );\n  square.vertices.push( new THREE.Vector3( 0, height, 0 ) );\n\n\n  var uvs = [];\n  uvs.push( new THREE.Vector2( 0, 0 ) );\n  uvs.push( new THREE.Vector2( 1.0, 0.0 ) );\n  uvs.push( new THREE.Vector2( 1.0, 1.0 ) );\n  uvs.push( new THREE.Vector2( 0.0, 1.0 ) );\n\n  square.faces.push( new THREE.Face3( 0, 1, 2 ) );\n  square.faceVertexUvs[ 0 ].push( [ uvs[0], uvs[1], uvs[2] ] );\n  square.faces.push( new THREE.Face3( 0, 2, 3 ) );\n  square.faceVertexUvs[ 0 ].push( [ uvs[0], uvs[2], uvs[3] ] );\n\n  square.computeVertexNormals ();\n\n  var square_material = getMaterial(material);\n  square_material.side = THREE.DoubleSide;\n  square_material.map = textureMap;\n  square_material.transparent = transparent;\n    // new THREE.MeshPhongMaterial( { \n    // color: 0xF6831E, \n    // side: THREE.DoubleSide,\n    // map: textureMap,\n    // transparent: transparent });\n  //var square_material = new THREE.MeshBasicMaterial( { map: textureMap } );\n\n  //var square_material = new THREE.MeshLambertMaterial( { color: 0xF6831E, side: THREE.DoubleSide } );\n    \n  var square_mesh = new THREE.Mesh(square, square_material);\n  square_mesh.position.x = center.x - width * 0.5;\n  square_mesh.position.x = center.y - height * 0.5;\n  square_mesh.position.z = center.z;\n\n  var vertexNormalsHelper = new THREE.VertexNormalsHelper( square_mesh, 10 );\n  square_mesh.add( vertexNormalsHelper );\n\n\n  var vertexNormalsHelper = new THREE.VertexNormalsHelper( square_mesh, 10 );\n  square_mesh.add( vertexNormalsHelper );\n\n  return square_mesh;\n}\n\nfunction createSprite(center, texture) {\n  var textureMap = textureManager.getTextureByName(texture);\n  textureMap.wrapS = textureMap.wrapT = THREE.ClampToEdgeWrapping;\n  var spriteMaterial = new THREE.SpriteMaterial({\n    map: textureMap,\n    color: 0xffffff\n  });  \n  var width = spriteMaterial.map.image.width;\n  var height = spriteMaterial.map.image.height;\n  var sprite = new THREE.Sprite( spriteMaterial );\n  sprite.position.set(center.x ,center.y, center.z);\n  sprite.scale.set( width, height, 1 );\n  scene.add(sprite);\n}\n\nfunction init() {\n  document.addEventListener( 'mousedown', onDocumentMouseDown, false );\n  document.addEventListener( 'mousemove', onDocumentMouseMove, false );\n  document.addEventListener( 'mouseup', onDocumentMouseUp, false );\n\n  canvasWidth = 960;\n  canvasHeight = 540;\n  var canvasRatio = canvasWidth / canvasHeight;\n  var cameraWidth = canvasWidth;\n  var cameraHeight = canvasHeight;\n  //camera = new THREE.OrthographicCamera(-cameraWidth * 0.5, cameraWidth * 0.5, cameraHeight * 0.5, -cameraHeight * 0.5, 0.01, 20000);\n  camera = new THREE.PerspectiveCamera( 45, canvasWidth/ canvasHeight, 0.01, 20000 );\n  camera.position.z = 300;\n  //camera.lookAt(0,0,0);\n\n  renderer = new THREE.WebGLRenderer({\n    antialias: true\n  });\n  renderer.setPixelRatio( window.devicePixelRatio );\n  renderer.setSize(canvasWidth, canvasHeight);\n  renderer.setClearColor(0xAAAAAA, 1.0);\n  renderer.gammaInput = true;\n  renderer.gammaOutput = true;\n\n  //cameraControls = new THREE.OrbitControls( camera, renderer.domElement );\n  //cameraControls = new THREE.FlyControls( camera, renderer.domElement );\n  //cameraControls.target.set(0, 0, 0);\n  //camera.updateProjectionMatrix();\n\n  light = new THREE.PointLight( 0xffffff, 0.5, 0, 2);\n  light.position.set( 30, 30, 10 );\n\n  ambientLight = new THREE.AmbientLight( 0xffffff );\n}\n\nfunction fillScene() {\n  scene = new THREE.Scene();\n  var sceneAxis = new THREE.AxisHelper(2000);\n  scene.add(sceneAxis);\n  //var sprite = createSprite(780, 1085, new THREE.Vector3(0, 0, 0), \"imgs/fox.jpg\");\n  //var sprite = createSprite(780, 1085, new THREE.Vector3(0, 0, 0), \"imgs/rock.jpg\");\n  //createSprite(new THREE.Vector3(0, 0, 0), \"imgs/fox.jpg\");\n  // var backgroundSquare = drawSquare(-canvasWidth * 0.5,  - canvasHeight * 0.5,  \n  //   canvasWidth * 0.5,  canvasHeight * 0.5);\n  //scene.add(backgroundSquare);\n\n  var sphereMaterial = new THREE.MeshBasicMaterial( );\n  sphereMaterial.color.r = 1.0;    \n  sphereMaterial.color.g = 0.0;\n  sphereMaterial.color.b = 0.0;\n  sphere = new THREE.Mesh(\n    new THREE.SphereGeometry( 1, 32, 16 ), sphereMaterial );\n  scene.add(sphere)\n\n  var img = drawTexturedSquare(new THREE.Vector3(0,0,0), \"imgs/fox.jpg\", MaterialKind.PHONG);\n  scene.add(img);\n\n  candle = drawTexturedSquare(\n    new THREE.Vector3(light.position.x, light.position.y, light.position.z - 1),\n    \"imgs/animations/candlelit/candlelit1.png\", MaterialKind.BASIC, true);\n  scene.add(candle);\n\n\n  /*var imgTexture = textureManager.getTextureByName(\"imgs/animations/candlelit/candlelit1.png\");\n  var imagedata = getImageData( imgTexture.image );\n  for(var i = 0; i < imgTexture.image.width; ++i) {\n    for(var j = 0; j < imgTexture.image.height; ++j) {\n      var color = getPixel( imagedata, i, j );\n      console.log(\"r:\" + color.r + \" g:\" + color.g + \" b:\" + color.b + \" a:\" + color.a);\n    }\n  }*/\n  //var color = getPixel( imagedata, 10, 10 );\n  //console.log(\"r:\" + color.r + \" g:\" + color.g + \" b:\" + color.b + \" a:\" + color.a);\n\n  scene.add(light);\n  //scene.add(ambientLight);\n}\n\nfunction animate() {\n  var delta = clock.getDelta();\n  //cameraControls.update(delta);\n  window.requestAnimationFrame(animate);\n  render();\n\n}\n\nfunction render() {\n  renderer.render(scene, camera);\n}\n\nfunction addToDOM() {\n  // var container = document.getElementById('container');\n  // var canvas = container.getElementsByTagName('canvas');\n  // if (canvas.length>0) {\n  //     container.removeChild(canvas[0]);\n  // }\n  // container.appendChild( renderer.domElement );\n  document.body.appendChild(renderer.domElement);\n}\n\nfunction transformHDCtoWorld(hdcPosition)\n{\n  var wPosition = new THREE.Vector3();\n  wPosition.copy(hdcPosition);\n  wPosition.unproject( camera );\n  var dir = wPosition.sub( camera.position ).normalize();\n  var distance = - camera.position.z / dir.z;\n  wPosition = camera.position.clone().add( dir.multiplyScalar( distance ) );\n\n  return wPosition;\n}\n\nfunction onDocumentMouseDown( event ) \n{\n  // console.log(\"Corner::\" + Corner.BOTTOM);\n  // var corner = Corner.BOTTOM;\n  // if((corner & Corner.TOP) > 0) {\n  //   console.log(\"Bottom\");\n  // }\n  var mouseVector = new THREE.Vector3(\n      2 * ( event.clientX / canvasWidth ) - 1,\n      1 - 2 * ( event.clientY / canvasHeight ));  \n  console.log(\"mouseDown::\" + mouseVector.x + \",\" + mouseVector.y + \",\" + mouseVector.z);\n\n  raycaster.setFromCamera( mouseVector, camera );\n  // hit testing\n  var intersects = raycaster.intersectObject( candle );\n  if ( intersects.length > 0 ) {\n      intersects[ 0 ].object.material.color.setRGB(\n          Math.random(), Math.random(), Math.random() );\n\n      console.log(\"intersection point::\");\n      printVector3(intersects[ 0 ].point);\n      console.log(\"position object::\");\n      printVector3(intersects[0].object.position);\n\n      var pointInObject = new THREE.Vector3();\n      pointInObject.subVectors(intersects[0].point, intersects[0].object.position );      \n      console.log(\"pointInObject::\");\n      printVector3(pointInObject);\n      var imagedata = getImageData( candle.material.map.image );\n      var colorClicked = getPixel(imagedata, parseInt(pointInObject.x), parseInt(pointInObject.y));\n      console.log(\"color clicked::\");\n      printVector4(colorClicked);\n\n      // var sphere = new THREE.Mesh( sphereGeom, sphereMaterial );\n      // sphere.position = intersects[ 0 ].point;\n      // scene.add( sphere );\n      // sphere.position = intersectsposition object::nt;\n      // sphere.position = intersectsposition object::nt;\n      if(colorClicked.w != 0) {\n        bDragging = true;\n      }\n  }\n  lastMousePosition = transformHDCtoWorld(mouseVector);\n}\n\nfunction checkBoundingBoxOnFrustum(frustum, boundingBox, position)\n{\n  var minPoint = new THREE.Vector3();\n  minPoint.x = boundingBox.min.x + position.x;\n  minPoint.y = boundingBox.min.y + position.y;\n  minPoint.z = position.z;\n\n  var maxPoint = new THREE.Vector3();\n  maxPoint.x = boundingBox.max.x + position.x;\n  maxPoint.y = boundingBox.max.y + position.y;\n  maxPoint.z = position.z;\n\n  var bIsMinOnFrustum = frustum.containsPoint(minPoint);\n  var bIsMaxOnFrustum = frustum.containsPoint(maxPoint);\n\n  return bIsMaxOnFrustum && bIsMinOnFrustum;\n}\n\nfunction onDocumentMouseMove( event ) \n{\n  var mouseVector = new THREE.Vector3(\n      2 * ( event.clientX / canvasWidth ) - 1,\n      1 - 2 * ( event.clientY / canvasHeight ));\n\n  \n  console.log(\"canvasWidth::\" + canvasWidth);\n  console.log(\"mouseMove::\" + mouseVector.x + \",\" + mouseVector.y + \",\" + mouseVector.z);\n  //mouseVector.unproject(camera);\n  //console.log(\"mouseMove unproj::\" + mouseVector.x + \",\" + mouseVector.y + \",\" + mouseVector.z);\n  console.log(\"screen::\" + event.clientX + \",\" + event.clientY);\n  var unProjectedScreen = new THREE.Vector3(event.clientX, event.clientY, -1);\n  unProjectedScreen.unproject(camera);\n  //console.log(\"unprojected::\" + unProjectedScreen.x + \",\" + unProjectedScreen.y + \",\" + unProjectedScreen.z);\n\n  var matrix = new THREE.Matrix4();\n  //matrix.multiplyMatrices(matrix.getInverse( camera.matrixWorld ), matrix.getInverse(camera.projectionMatrix) );\n  //matrix.multiplyMatrices(matrix.getInverse( camera.projectionMatrix ), matrix.getInverse(camera.matrixWorld) );\n  //matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorld );\n  var unProjected = new THREE.Vector4();\n  unProjected.copy(mouseVector);\n  unProjected.applyMatrix4(matrix);\n\n  // sphere.position.copy(unProjected);\n  // sphere.position.z = 0;\n  console.log(\"unprojected::\" + unProjected.x + \",\" + unProjected.y + \",\" + unProjected.z);\n  var newMousePosition = transformHDCtoWorld(mouseVector);\n\n  if(lastMousePosition != undefined) {\n    var movementVector = new THREE.Vector3();\n    movementVector.subVectors(newMousePosition, lastMousePosition);\n    if(bDragging) {\n      candle.position.add(movementVector);\n      light.position.add(movementVector);   \n\n      var frustum = new THREE.Frustum();\n      frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );\n\n      candle.geometry.computeBoundingBox();\n      \n      //if(frustum.containsPoint(newMousePosition)) {\n        //console.log('within camera view');      \n      //} else {\n      if(!checkBoundingBoxOnFrustum(frustum, candle.geometry.boundingBox, candle.position)) {\n        console.log('outside camera view');\n        camera.position.add(movementVector);\n        //camera.updateProjectionMatrix();\n        camera.updateMatrix(); // make sure camera's local matrix is updated\n        camera.updateMatrixWorld(); // make sure camera's world matrix is updated\n        camera.matrixWorldInverse.getInverse( camera.matrixWorld );\n      }\n      isOnCorner(candle)\n    } \n  }\n\n\n  lastMousePosition = newMousePosition;\n  //sphere.position.copy(pos);\n  //console.log(\"pos::\");\n  //printVector3(pos);\n\n\n}\n\n\nfunction onDocumentMouseUp( event ) \n{\n  lastMousePosition = undefined;\n  bDragging = false;\n}\n\nfunction onAllTexturesLoaded()\n{\n  //try {\n    init();\n    fillScene();\n    addToDOM();\n    animate();\n  // } catch (e) {\n  //   var errorReport = \"Your program encountered an unrecoverable error, can not draw on canvas. Error was:<br/><br/>\";\n  //   //$('#container').append(errorReport+e);\n  //   console.log(errorReport + e);\n  // }\n\n}\n\nfunction loadTextures()\n{\n  var textureAnimations = [[\"imgs/animations/candlelit/candlelit\", 5, \".png\"]];\n  textureManager = new TextureManager([\"imgs/rock.jpg\", \"imgs/fox.jpg\"], textureAnimations, onAllTexturesLoaded);\n}\n\nloadTextures();",
 			"file": "app.js",
-			"file_size": 15324,
-			"file_write_time": 131475490394383427,
 			"settings":
 			{
-				"buffer_size": 15349,
+				"buffer_size": 21759,
 				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/home/freeuser/C/cursos/interactive_3d_graphics_udacity/quiz/ReflectionMapping.js",
+			"settings":
+			{
+				"buffer_size": 3151,
 				"line_ending": "Unix"
 			}
 		},
@@ -206,6 +227,37 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"candle.position",
+			"light",
+			"lastMousePosition",
+			"isOnCorner",
+			"sphere.position",
+			"isOnCorner",
+			"sphere",
+			"spherica",
+			"mouseMove",
+			"onCorner",
+			"MouseMove",
+			"isOnCorner",
+			"cornerOn",
+			"animate",
+			"cornerOn",
+			"isOnCorner",
+			"Corners",
+			"moveCameraDependingOnCorner",
+			"camera.position",
+			"corners",
+			"isOnCorner",
+			"corners",
+			"init",
+			"isOnCorner",
+			"canvasWidth",
+			"var sMin = new THREE.Vector4(object.geometry.boundingBox.max.x, \n      object.geometry.boundingBox.max.y, object.position.z , 1);",
+			"isOnCorner",
+			"fillScene",
+			"init(",
+			"checkBoundingBoxOnFrustum",
+			"isOnCorner",
 			"mouseDown",
 			"fillScene",
 			"down",
@@ -290,7 +342,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
@@ -299,27 +351,28 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 15349,
+						"buffer_size": 21759,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								14534,
-								14534
+								1491,
+								1491
 							]
 						],
 						"settings":
 						{
 							"auto_complete": false,
 							"nodePath": "node",
+							"open_with_edit": true,
 							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
 							"tab_size": 2,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 6898.0,
+						"translation.y": 629.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -327,6 +380,35 @@
 				},
 				{
 					"buffer": 2,
+					"file": "/home/freeuser/C/cursos/interactive_3d_graphics_udacity/quiz/ReflectionMapping.js",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 3151,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
 					"file": "TextureManager.js",
 					"semi_transient": false,
 					"settings":
@@ -338,8 +420,8 @@
 						"selection":
 						[
 							[
-								2135,
-								2135
+								177,
+								177
 							]
 						],
 						"settings":
@@ -348,21 +430,21 @@
 							"auto_name": "\"use strict\";",
 							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax"
 						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.x": -0.0,
+						"translation.y": 108.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
-					"buffer": 3,
+					"buffer": 4,
 					"file": "libs/OrbitControls.js",
 					"semi_transient": false,
 					"settings":
@@ -374,8 +456,8 @@
 						"selection":
 						[
 							[
-								3211,
-								3211
+								3385,
+								3385
 							]
 						],
 						"settings":
@@ -384,14 +466,14 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1903.0,
+						"translation.y": 2227.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
+					"buffer": 5,
 					"file": "libs/FlyControls.js",
 					"semi_transient": false,
 					"settings":
@@ -403,8 +485,8 @@
 						"selection":
 						[
 							[
-								173,
-								173
+								63,
+								63
 							]
 						],
 						"settings":
@@ -416,11 +498,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
-					"buffer": 5,
+					"buffer": 6,
 					"file": "/home/freeuser/C/cursos/interactive_3d_graphics_udacity/quiz/DiffuseMaterial.js",
 					"semi_transient": false,
 					"settings":
@@ -444,11 +526,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 8,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 7,
 					"file": "/home/freeuser/C/cursos/interactive_3d_graphics_udacity/quiz/SpecularMapping.js",
 					"semi_transient": false,
 					"settings":
@@ -472,11 +554,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
+					"buffer": 8,
 					"file": "/home/freeuser/C/cursos/interactive_3d_graphics_udacity/quiz/DrawRectangle.js",
 					"semi_transient": false,
 					"settings":
@@ -500,7 +582,7 @@
 						"translation.y": 594.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 6,
 					"type": "text"
 				}
 			]
@@ -534,7 +616,7 @@
 		"cols":
 		[
 			0.0,
-			0.611602891704,
+			0.5,
 			1.0
 		],
 		"rows":
