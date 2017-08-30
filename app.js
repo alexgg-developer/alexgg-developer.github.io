@@ -31,6 +31,8 @@ var Corner = {
   BOTTOM: 1 << 3
 }
 var cornerOn = Corner.NONE;
+var lightFlickeringPeriod = 0.1;
+var timeElapsedSinceLastFlicker = 0.0;
 
 function printVector3(v)
 {
@@ -81,13 +83,13 @@ function isOnCorner(object, camera, corners)
   sMin.z = object.position.z;
    // var sMin = new THREE.Vector4(object.geometry.boundingBox.max.x, 
    //    object.geometry.boundingBox.max.y, object.position.z , 1);
-   sphere.position.copy(sMin);
+   //sphere.position.copy(sMin);
   var sMax = new THREE.Vector3();
 
   sMax.x = object.position.x + objectWidth;
   sMax.y = object.position.y + objectHeight; 
   sMax.z = object.position.z;
-   sphere.position.copy(sMax);
+   //sphere.position.copy(sMax);
   //var MVP =  new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse )  
   //var sMin = new THREE.Vector3();
   //sMin.copy(object.position);
@@ -350,16 +352,16 @@ function init() {
   //cameraControls.target.set(0, 0, 0);
   //camera.updateProjectionMatrix();
 
-  light = new THREE.PointLight( 0xffffff, 0.5, 0, 2);
-  light.position.set( 30, 30, 10 );
+  light = new THREE.PointLight( 0xffffff, 0.3, 0, 2);
+  //light.position.set( 30, 30, 10 );
 
   ambientLight = new THREE.AmbientLight( 0xffffff );
 }
 
 function fillScene() {
   scene = new THREE.Scene();
-  var sceneAxis = new THREE.AxisHelper(2000);
-  scene.add(sceneAxis);
+  /*var sceneAxis = new THREE.AxisHelper(2000);
+  scene.add(sceneAxis);*/
   //var sprite = createSprite(780, 1085, new THREE.Vector3(0, 0, 0), "imgs/fox.jpg");
   //var sprite = createSprite(780, 1085, new THREE.Vector3(0, 0, 0), "imgs/rock.jpg");
   //createSprite(new THREE.Vector3(0, 0, 0), "imgs/fox.jpg");
@@ -374,7 +376,7 @@ function fillScene() {
   sphere = new THREE.Mesh(
     new THREE.SphereGeometry( 1, 32, 16 ), sphereMaterial );
   //sphere.position.copy(light.position);
-  scene.add(sphere)
+  //scene.add(sphere)
 
   var img = drawTexturedSquare(new THREE.Vector3(0,0,0), "imgs/fox.jpg", MaterialKind.PHONG);
   scene.add(img);
@@ -384,7 +386,7 @@ function fillScene() {
     "imgs/animations/candlelit/candlelit1.png", MaterialKind.BASIC, true);*/
   //candle.geometry.computeBoundingBox();
   var candleParams = new Object();
-  candleParams.center = new THREE.Vector3(light.position.x, light.position.y, light.position.z - 1);
+  candleParams.center = new THREE.Vector3(0, 0, 9);
   candleParams.textureName = "imgs/animations/candlelit/candlelit";
   candleParams.extension = ".png";
   candleParams.frames = 5;
@@ -393,6 +395,7 @@ function fillScene() {
   candleParams.timePerFrame = 0.15;
   candle = new AnimatedQuad(candleParams);
   scene.add(candle.getMesh());
+  light.position.set( 0, candle.height*0.4, 10 );
 
 
   /*var imgTexture = textureManager.getTextureByName("imgs/animations/candlelit/candlelit1.png");
@@ -416,6 +419,11 @@ function animate() {
   if(cornerOn != Corner.NONE) {
     moveCameraDependingOnCorner(delta);
   }
+  timeElapsedSinceLastFlicker += delta;
+  if(timeElapsedSinceLastFlicker > lightFlickeringPeriod) {
+    light.intensity = mps.utils.getRandomNumberFromARange(0.7, 0.3);  
+    timeElapsedSinceLastFlicker = 0;
+  }  
   candle.update(delta);
   window.requestAnimationFrame(animate);
   render();
@@ -464,22 +472,22 @@ function onDocumentMouseDown( event )
   // hit testing
   var intersects = raycaster.intersectObject( candle.getMesh() );
   if ( intersects.length > 0 ) {
-      intersects[ 0 ].object.material.color.setRGB(
-          Math.random(), Math.random(), Math.random() );
+      /*intersects[ 0 ].object.material.color.setRGB(
+          Math.random(), Math.random(), Math.random() );*/
 
-      console.log("intersection point::");
-      printVector3(intersects[ 0 ].point);
-      console.log("position object::");
-      printVector3(intersects[0].object.position);
+      //console.log("intersection point::");
+      //printVector3(intersects[ 0 ].point);
+      //console.log("position object::");
+      //printVector3(intersects[0].object.position);
 
       var pointInObject = new THREE.Vector3();
       pointInObject.subVectors(intersects[0].point, intersects[0].object.position );      
-      console.log("pointInObject::");
-      printVector3(pointInObject);
+      //console.log("pointInObject::");
+      //printVector3(pointInObject);
       var imagedata = getImageData( candle.material.map.image );
       var colorClicked = getPixel(imagedata, parseInt(pointInObject.x), parseInt(pointInObject.y));
-      console.log("color clicked::");
-      printVector4(colorClicked);
+      //console.log("color clicked::");
+      //printVector4(colorClicked);
 
       // var sphere = new THREE.Mesh( sphereGeom, sphereMaterial );
       // sphere.position = intersects[ 0 ].point;

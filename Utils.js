@@ -26,5 +26,9 @@ mps.utils =
         break;
     }
     return materialCreated;
+  },
+  getRandomNumberFromARange: function(high, low)
+  {
+    return Math.random() * (high - low) + high;
   }
 }
