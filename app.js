@@ -33,16 +33,9 @@ var Corner = {
 var cornerOn = Corner.NONE;
 var lightFlickeringPeriod = 0.1;
 var timeElapsedSinceLastFlicker = 0.0;
+var wCameraWidth, wCameraHeight;
+var background;
 
-function printVector3(v)
-{
-  console.log("(" + v.x + "," + v.y + "," + v.z + ")");
-}
-
-function printVector4(v)
-{
-  console.log("(" + v.x + "," + v.y + "," + v.z + "," + v.w + ")" );
-}
 
 function moveCameraDependingOnCorner(delta)
 {
@@ -61,8 +54,8 @@ function moveCameraDependingOnCorner(delta)
     movementVector.x = delta * CAMERA_SPEED;
   }
 
-  var test = cornerOn & Corner.RIGHT;
-
+  //var test = cornerOn & Corner.RIGHT;
+  movementVector = limitCameraMovementToBackground(camera, background, movementVector);
   camera.position.add(movementVector);
   candle.position.add(movementVector);
   light.position.add(movementVector);
@@ -71,6 +64,68 @@ function moveCameraDependingOnCorner(delta)
   //camera.updateMatrixWorld();
 }
 
+function limitCameraMovementToBackground(camera, background, wMovementVector)
+{ 
+  var wBottomLeft = transformViewToWorld(new THREE.Vector3(0, canvasHeight));
+  var wTopRight = transformViewToWorld(new THREE.Vector3(canvasWidth, 0));
+
+  wCameraWidth = wTopRight.x - wBottomLeft.x;
+  wCameraHeight = wTopRight.y - wBottomLeft.y;
+  
+  var wCameraBottom = camera.position.y + wMovementVector.y - wCameraHeight * 0.5;
+  var wCameraTop = camera.position.y + wMovementVector.y + wCameraHeight * 0.5;
+  var wCameraLeft = camera.position.x + wMovementVector.x - wCameraWidth * 0.5;
+  var wCameraRight = camera.position.x + wMovementVector.x + wCameraWidth * 0.5;
+
+  background.geometry.computeBoundingBox();
+  var backgroundWidth = background.geometry.boundingBox.max.x;
+  var backgroundHeight = background.geometry.boundingBox.max.y;
+
+  var wTopRight = new THREE.Vector3(background.position.x + backgroundWidth, 
+    background.position.y + backgroundHeight);
+  var wBottomLeft = new THREE.Vector3(background.position.x, background.position.y);
+
+  wCameraBottom = mps.utils.clampToMin(wCameraBottom, wBottomLeft.y) - wCameraBottom;
+  wCameraTop = mps.utils.clampToMax(wCameraTop, wTopRight.y) - wCameraTop;
+  
+  wCameraLeft = mps.utils.clampToMin(wCameraLeft, wBottomLeft.x) - wCameraLeft;
+  
+  wCameraRight = mps.utils.clampToMax(wCameraRight, wTopRight.x) - wCameraRight;
+
+  return new THREE.Vector3(wCameraLeft + wCameraRight + wMovementVector.x, 
+    wCameraBottom + wCameraTop + wMovementVector.y);
+  //wMovementVector.y = wObjectBottom + wObjectTop;
+  //wMovementVector.x = wObjectLeft + wObjectRight;
+
+}
+
+function limitMovementToBorder(object, wMovementVector)
+{
+  var objectWidth = object.geometry.boundingBox.max.x;
+  var objectHeight = object.geometry.boundingBox.max.y;
+
+  var wObjectBottom = object.position.y + wMovementVector.y;
+  var wObjectTop = object.position.y + wMovementVector.y + objectHeight;
+  var wObjectLeft = object.position.x + wMovementVector.x;
+  var wObjectRight = object.position.x + wMovementVector.x + objectWidth;
+
+  
+  var wTopRight = transformViewToWorld(new THREE.Vector3(canvasWidth, 0));
+  var wBottomLeft = transformViewToWorld(new THREE.Vector3(0, canvasHeight));
+
+  wObjectBottom = mps.utils.clampToMin(wObjectBottom, wBottomLeft.y) - wObjectBottom;
+  wObjectTop = mps.utils.clampToMax(wObjectTop, wTopRight.y) - wObjectTop;
+  
+  wObjectLeft = mps.utils.clampToMin(wObjectLeft, wBottomLeft.x) - wObjectLeft;
+  
+  wObjectRight = mps.utils.clampToMax(wObjectRight, wTopRight.x) - wObjectRight;
+
+  return new THREE.Vector3(wObjectLeft + wObjectRight + wMovementVector.x, 
+    wObjectBottom + wObjectTop + wMovementVector.y);
+  //wMovementVector.y = wObjectBottom + wObjectTop;
+  //wMovementVector.x = wObjectLeft + wObjectRight;
+
+}
 function isOnCorner(object, camera, corners)
 {
   //candle.geometry.computeBoundingBox();
@@ -168,47 +223,6 @@ function isOnCorner(object, camera, corners)
   //cornerOn = Corner.NONE;
 }
 
-function getImageData( image ) {
-
-    var canvas = document.createElement( 'canvas' );
-    canvas.width = image.width;
-    canvas.height = image.height;
-
-    var context = canvas.getContext( '2d' );
-    context.drawImage( image, 0, 0 );
-
-    return context.getImageData( 0, 0, image.width, image.height );
-
-}
-
-function getPixel( imagedata, x, y ) {
-
-    y = imagedata.height - y;
-    var position = ( x + imagedata.width * y ) * 4, data = imagedata.data;
-    console.log("int position: " + x + "," + y);
-    return new THREE.Vector4(data[position], data[ position + 1 ], data[ position + 2 ], data[ position + 3]);
-    //return { r: data[ position ], g: data[ position + 1 ], b: data[ position + 2 ], a: data[ position + 3 ] };
-
-}
-
-function getMaterial(material)
-{
-  var materialCreated;
-  switch(material)
-  {
-    case MaterialKind.LAMBERT:
-      materialCreated = new THREE.MeshLambertMaterial( { color: 0xF6831E } );
-      break;
-    case MaterialKind.PHONG:
-      materialCreated = new THREE.MeshPhongMaterial( { color: 0xF6831E } );
-      break;
-    case MaterialKind.BASIC:
-    default:
-      materialCreated = new THREE.MeshBasicMaterial( { color: 0xF6831E } );
-      break;
-  }
-  return materialCreated;
-}
 
 function drawSquare(x1, y1, x2, y2) {
 
@@ -274,7 +288,7 @@ function drawTexturedSquare(center, texture, material, transparent) {
 
   square.computeVertexNormals ();
 
-  var square_material = getMaterial(material);
+  var square_material = mps.utils.getMaterial(material);
   square_material.side = THREE.DoubleSide;
   square_material.map = textureMap;
   square_material.transparent = transparent;
@@ -334,8 +348,9 @@ function init() {
   var cameraWidth = canvasWidth;
   var cameraHeight = canvasHeight;
   //camera = new THREE.OrthographicCamera(-cameraWidth * 0.5, cameraWidth * 0.5, cameraHeight * 0.5, -cameraHeight * 0.5, 0.01, 20000);
-  camera = new THREE.PerspectiveCamera( 45, canvasWidth/ canvasHeight, 0.01, 20000 );
-  camera.position.z = 300;
+  //camera = new THREE.PerspectiveCamera( 45, canvasWidth/ canvasHeight, 0.01, 20000 );
+  camera = new THREE.PerspectiveCamera( 2.5, canvasWidth/ canvasHeight, 0.01, 20000 );
+  camera.position.z = 10000;
   //camera.lookAt(0,0,0);
 
   renderer = new THREE.WebGLRenderer({
@@ -346,7 +361,6 @@ function init() {
   renderer.setClearColor(0xAAAAAA, 1.0);
   renderer.gammaInput = true;
   renderer.gammaOutput = true;
-
   //cameraControls = new THREE.OrbitControls( camera, renderer.domElement );
   //cameraControls = new THREE.FlyControls( camera, renderer.domElement );
   //cameraControls.target.set(0, 0, 0);
@@ -378,15 +392,16 @@ function fillScene() {
   //sphere.position.copy(light.position);
   //scene.add(sphere)
 
-  var img = drawTexturedSquare(new THREE.Vector3(0,0,0), "imgs/fox.jpg", MaterialKind.PHONG);
-  scene.add(img);
+  //var img = drawTexturedSquare(new THREE.Vector3(0,0,0), "imgs/fox.jpg", MaterialKind.PHONG);
+  background = drawTexturedSquare(new THREE.Vector3(0,0,0), "imgs/carolina-godina-rev-namaka.jpg", MaterialKind.PHONG);  
+  scene.add(background);
 
   /*candle = drawTexturedSquare(
     new THREE.Vector3(light.position.x, light.position.y, light.position.z - 1),
     "imgs/animations/candlelit/candlelit1.png", MaterialKind.BASIC, true);*/
   //candle.geometry.computeBoundingBox();
   var candleParams = new Object();
-  candleParams.center = new THREE.Vector3(0, 0, 9);
+  candleParams.center = new THREE.Vector3(0, 0, 1);
   candleParams.textureName = "imgs/animations/candlelit/candlelit";
   candleParams.extension = ".png";
   candleParams.frames = 5;
@@ -395,7 +410,7 @@ function fillScene() {
   candleParams.timePerFrame = 0.15;
   candle = new AnimatedQuad(candleParams);
   scene.add(candle.getMesh());
-  light.position.set( 0, candle.height*0.4, 10 );
+  light.position.set( -candle.width * 0.03, candle.height*0.35, 2 );
 
 
   /*var imgTexture = textureManager.getTextureByName("imgs/animations/candlelit/candlelit1.png");
@@ -411,6 +426,10 @@ function fillScene() {
 
   scene.add(light);
   //scene.add(ambientLight);
+  var wBottomLeft = transformViewToWorld(new THREE.Vector3(0, canvasHeight));
+  var wTopRight = transformViewToWorld(new THREE.Vector3(canvasWidth, 0));
+  wCameraWidth = wTopRight.x - wBottomLeft.x;
+  wCameraHeight = wTopRight.y - wBottomLeft.y;
 }
 
 function animate() {
@@ -442,6 +461,15 @@ function addToDOM() {
   // }
   // container.appendChild( renderer.domElement );
   document.body.appendChild(renderer.domElement);
+}
+
+function transformViewToWorld(viewPosition)
+{
+  var hdcPosition = new THREE.Vector3(
+      2 * ( viewPosition.x / canvasWidth ) - 1,
+      1 - 2 * ( viewPosition.y / canvasHeight ));
+
+  return transformHDCtoWorld(hdcPosition);
 }
 
 function transformHDCtoWorld(hdcPosition)
@@ -484,8 +512,8 @@ function onDocumentMouseDown( event )
       pointInObject.subVectors(intersects[0].point, intersects[0].object.position );      
       //console.log("pointInObject::");
       //printVector3(pointInObject);
-      var imagedata = getImageData( candle.material.map.image );
-      var colorClicked = getPixel(imagedata, parseInt(pointInObject.x), parseInt(pointInObject.y));
+      var imagedata = mps.utils.getImageData( candle.material.map.image );
+      var colorClicked = mps.utils.getPixel(imagedata, parseInt(pointInObject.x), parseInt(pointInObject.y));
       //console.log("color clicked::");
       //printVector4(colorClicked);
 
@@ -552,16 +580,21 @@ function onDocumentMouseMove( event )
     var hdcLastMousePosition = new THREE.Vector3(
       2 * ( lastMousePosition.x / canvasWidth ) - 1,
       1 - 2 * ( lastMousePosition.y / canvasHeight ));
-    hdcLastMousePosition = transformHDCtoWorld(hdcLastMousePosition);
-    var movementVector = new THREE.Vector3();
-    movementVector.subVectors(newMousePosition, hdcLastMousePosition);
+    var wLastMousePosition = transformHDCtoWorld(hdcLastMousePosition);
+    var wMovementVector = new THREE.Vector3();
+    wMovementVector.subVectors(newMousePosition, wLastMousePosition);
     if(bDragging) {
       var wasOnCorner = cornerOn != Corner.NONE;
-      isOnCorner(candle, camera, corners);
-      printVector3(movementVector);
+      isOnCorner(candle, camera, corners);      
+      //printVector3(wMovementVector);
+    console.log("Before::");
+    mps.utils.printVector3(wMovementVector);
+    wMovementVector = limitMovementToBorder(candle, wMovementVector);
+    console.log("after::");
+    mps.utils.printVector3(wMovementVector);
       //if(!wasOnCorner && cornerOn == Corner.NONE) {
-        candle.position.add(movementVector);
-        light.position.add(movementVector); 
+        candle.position.add(wMovementVector);
+        light.position.add(wMovementVector); 
         //console.log("dragging");  
 
         var frustum = new THREE.Frustum();
@@ -665,7 +698,7 @@ function onAllTexturesLoaded()
 function loadTextures()
 {
   var textureAnimations = [["imgs/animations/candlelit/candlelit", 5, ".png"]];
-  textureManager = new TextureManager(["imgs/rock.jpg", "imgs/fox.jpg"], textureAnimations, onAllTexturesLoaded);
+  textureManager = new TextureManager(["imgs/rock.jpg", "imgs/fox.jpg", "imgs/carolina-godina-rev-namaka.jpg"], textureAnimations, onAllTexturesLoaded);
 }
 
 loadTextures();
